@@ -56,7 +56,7 @@ rdap-q/
 - **종교 간 차등 (`deviation_total`)** = ∑ \|Q*nA* − Q*nB*\|, 범위 0~15
 - **전반적 신중도 (`overall_caution`)** = 10문항 점수 합, 범위 0~30
 - **영역별 차등** = 공적/직장/사적 영역별 차등 합
-- **자기 보고–응답 일치 (`dq_cr_alignment`)** = [DQ 수준(1~4)] − [CR 차등 quantile(1~4)], 범위 −3~+3
+- **자기 보고–응답 일치 (`dq_cr_alignment`)** = DQ 수준(1to4) − CR 차등 quantile(1to4), 범위 −3~+3
 - **응답 시간 비대칭 (`rt_asymmetry`)** = \|평균 RT(종교1) − 평균 RT(종교2)\| (ms)
 - **CF–실제 일치도 (`cf_actual_match`)** = 7개 카테고리 (§10.7)
 - **프로파일 유형 (`profile_type`)** = 5유형 (`consistent_open` / `consistent_caution` / `devine_signature` / `self_aware_diff` / `mixed`)
