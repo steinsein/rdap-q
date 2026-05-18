@@ -7,7 +7,6 @@ RDAP 퀵버전 — Streamlit 메인 엔트리
 페이지 흐름:
     consent
         → dm_age → dm_gender → dm_region → dm_religion
-        → cr_intro
         → cr_Q1_0 → cr_Q1_1 → cr_Q1_2
         → cr_Q2_0 → cr_Q2_1 → cr_Q2_2
         → cr_Q3_0 → cr_Q3_1 → cr_Q3_2
@@ -36,8 +35,8 @@ from src import questions, results, utils
 # =============================================================================
 
 st.set_page_config(
-    page_title="종교 다양성 태도 프로파일(퀵버전)",
-    page_icon="📋",
+    page_title="RDAP 종교 다양성 태도 프로파일 (퀵버전)",
+    page_icon="🪞",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
@@ -124,8 +123,6 @@ PAGE_HANDLERS = {
     "dm_gender": questions.render_dm_gender,
     "dm_region": questions.render_dm_region,
     "dm_religion": questions.render_dm_religion,
-    # CR 도입
-    "cr_intro": questions.render_cr_intro,
     # 후속 블록
     "cf": questions.render_cf,
     "dq": questions.render_dq,
