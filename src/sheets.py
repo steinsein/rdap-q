@@ -1,13 +1,12 @@
 """
-RDAP 퀵버전 V4 — Google Sheets 저장 모듈
+RDAP 퀵버전 — Google Sheets 저장 모듈
 
 본 모듈은 응답 데이터를 Google Sheets로 안전하게 저장한다. 시트가
 연결되어 있지 않거나 secrets가 누락된 경우에도 앱이 죽지 않도록,
 실패 시 로컬 JSON 백업을 남기고 사용자 흐름은 그대로 진행한다.
 
-선행 문서:
-- V4 §3 데이터 스키마
-- V4 §6.1 배포 절차
+본 도구는 단일 탭(`responses`)으로 운영되며, MT(거울 테스트) 관련
+탭은 운영하지 않는다.
 """
 
 from __future__ import annotations
@@ -101,25 +100,30 @@ def _ensure_tab(sheet, tab_name: str, headers: list[str]):
 
 
 # =============================================================================
-# 스키마 (V4 §3.2)
+# 스키마
 # =============================================================================
+
+# CR 응답 컬럼 동적 생성: q1_pt, q1_is, q1_nr, q2_pt, ..., q4_nr
+_CR_RESPONSE_COLS = [
+    f"q{sc_idx + 1}_{rel.lower()}"
+    for sc_idx in range(len(config.SCENARIOS))
+    for rel in config.COMPARISON_RELIGIONS
+]
+_CR_RT_COLS = [f"rt_{col}_ms" for col in _CR_RESPONSE_COLS]
+
 
 MAIN_HEADERS = [
     # 메타
-    "timestamp", "session_id", "version", "cb_condition",
+    "timestamp", "session_id", "cb_condition",
     # 인구통계
     "age_group", "gender", "region", "religion",
-    # CR 정규화 점수 (0~3)
-    "q1a_response", "q1b_response", "q2a_response", "q2b_response",
-    "q3a_response", "q3b_response", "q4a_response", "q4b_response",
-    "q5a_response", "q5b_response",
+    # CR 정규화 응답 (0~3)
+    *_CR_RESPONSE_COLS,
     # CR RT (ms)
-    "rt_q1a_ms", "rt_q1b_ms", "rt_q2a_ms", "rt_q2b_ms",
-    "rt_q3a_ms", "rt_q3b_ms", "rt_q4a_ms", "rt_q4b_ms",
-    "rt_q5a_ms", "rt_q5b_ms",
-    # CF
-    "cf_q5_response", "rt_cf_ms",
-    # DQ
+    *_CR_RT_COLS,
+    # CF (Q3 직후, 백그라운드 수집)
+    "cf_q3_response", "rt_cf_ms",
+    # DQ (백그라운드 수집)
     "dq_01_response", "rt_dq_ms",
     # MC
     "mc_01_response", "mc_02_response",
@@ -128,18 +132,12 @@ MAIN_HEADERS = [
     # 품질 플래그
     "rt_anomaly_flags",
     # 산출 점수
-    "overall_caution", "deviation_total",
-    "dom_public", "dom_work", "dom_private",
-    "dq_cr_alignment", "rt_asymmetry", "cf_actual_match",
-    "profile_type", "dominant_domain", "rt_message_level",
+    "rdas_score", "rdas_label", "pt_is_deviation",
+    "pt_nr_deviation", "is_nr_deviation", "nr_mean_score",
+    "dom_public", "dom_work", "dom_private", "dom_media",
+    "dominant_domain",
     # 소요 시간
     "total_duration_sec",
-]
-
-MT_HEADERS = [
-    "timestamp", "session_id", "version",
-    "mt_01_response", "mt_02_text",
-    "result_profile_shown", "result_deviation_shown",
 ]
 
 
@@ -161,13 +159,15 @@ def _local_backup(tab_name: str, row: dict[str, Any]) -> None:
 
 
 def append_response(payload: dict[str, Any]) -> bool:
-    """메인 응답 1건을 responses_v4 탭에 추가한다.
+    """응답 1건을 `responses` 탭에 추가한다.
 
     payload는 MAIN_HEADERS의 키 일부 또는 전부를 포함해야 한다. 누락 키는
     빈 문자열로 채운다. 시트 접근 실패 시 로컬 백업 후 False 반환.
     """
     payload = dict(payload)
-    payload.setdefault("timestamp", dt.datetime.utcnow().isoformat(timespec="seconds") + "Z")
+    payload.setdefault(
+        "timestamp", dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    )
 
     sheet = _open_sheet()
     if sheet is None:
@@ -182,25 +182,4 @@ def append_response(payload: dict[str, Any]) -> bool:
     except Exception as exc:  # noqa: BLE001
         logger.exception("시트 저장 실패, 로컬 백업으로 대체: %s", exc)
         _local_backup(config.SHEET_TAB_MAIN, payload)
-        return False
-
-
-def append_mt_response(payload: dict[str, Any]) -> bool:
-    """거울 테스트 응답을 mt_responses 탭에 추가한다."""
-    payload = dict(payload)
-    payload.setdefault("timestamp", dt.datetime.utcnow().isoformat(timespec="seconds") + "Z")
-
-    sheet = _open_sheet()
-    if sheet is None:
-        _local_backup(config.SHEET_TAB_MT, payload)
-        return False
-
-    try:
-        ws = _ensure_tab(sheet, config.SHEET_TAB_MT, MT_HEADERS)
-        row = [payload.get(h, "") for h in MT_HEADERS]
-        ws.append_row(row, value_input_option="USER_ENTERED")
-        return True
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("MT 시트 저장 실패: %s", exc)
-        _local_backup(config.SHEET_TAB_MT, payload)
         return False

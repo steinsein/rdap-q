@@ -1,7 +1,7 @@
 """
-RDAP 퀵버전 V4 — 문항 렌더링 함수
+RDAP 퀵버전 — 문항 렌더링 함수
 
-본 모듈은 각 블록(SC, DM, CR, CF, DQ, MC, FB, MT)의 UI를 그린다.
+본 모듈은 각 블록(SC, DM, CR, CF, DQ, MC, FB)의 UI를 그린다.
 페이지 라우팅(어느 시점에 어느 블록을 호출할지)은 app.py가 담당하며,
 본 모듈의 각 함수는 해당 페이지에 진입한 시점에 한 번씩 호출된다.
 
@@ -13,8 +13,6 @@ RDAP 퀵버전 V4 — 문항 렌더링 함수
 
 from __future__ import annotations
 
-from typing import Any
-
 import streamlit as st
 
 import config
@@ -22,13 +20,17 @@ from src import utils
 
 
 # =============================================================================
-# 공통 유틸 — 진행률 바, 헤더
+# 진행률 헤더
 # =============================================================================
+# 총 단계: 동의(1) + 인구통계 4 + CR 12 + CF + DQ + MC + FB = 21
+# 인구통계 시작 단계: 2
+_TOTAL_STEPS = 21
 
-def progress_header(current: int, total: int, title: str) -> None:
+
+def progress_header(current: int, title: str) -> None:
     """페이지 상단에 진행률과 단계 제목을 표시한다."""
-    pct = int(current / total * 100) if total else 0
-    st.progress(pct / 100, text=f"단계 {current} / {total}")
+    pct = int(current / _TOTAL_STEPS * 100) if _TOTAL_STEPS else 0
+    st.progress(pct / 100, text=f"단계 {current} / {_TOTAL_STEPS}")
     st.markdown(f"### {title}")
 
 
@@ -73,36 +75,58 @@ def render_consent_and_screen() -> None:
         st.session_state["responses"]["sc01"] = 1
         st.session_state["responses"]["sc02"] = 1
         utils.capture_rt_end("consent_page")
-        utils.go_to("demographics")
+        utils.go_to(config.DM_PAGE_KEYS[0])
 
 
 # =============================================================================
-# DM — 인구통계 (4문항)
+# DM — 인구통계 (4문항, 4페이지 분리)
 # =============================================================================
 
-def render_demographics() -> None:
-    utils.capture_rt_start("dm_page")
-    progress_header(1, 9, "기본 정보")
+def _render_dm_page(idx: int) -> None:
+    """인구통계 4문항 중 idx번째 페이지를 렌더링한다."""
+    q = config.DM_QUESTIONS[idx]
+    rt_key = f"dm_{q['key']}"
+    utils.capture_rt_start(rt_key)
+
+    # 진행률 단계 2~5 (DM 4 페이지)
+    progress_header(2 + idx, "기본 정보")
     st.caption("응답은 통계 분석 목적으로만 사용됩니다.")
 
-    answers: dict[str, str] = {}
-    for q in config.DM_QUESTIONS:
-        answers[q["key"]] = st.radio(
-            q["label"],
-            q["options"],
-            index=None,
-            key=f"dm_{q['key']}_widget",
-            horizontal=False,
-        )
+    selected = st.radio(
+        q["label"],
+        q["options"],
+        index=None,
+        key=f"dm_{q['key']}_widget",
+    )
 
-    if st.button("다음", type="primary", use_container_width=True):
-        if any(v is None for v in answers.values()):
-            st.warning("모든 항목에 응답해 주세요.")
+    if st.button("다음", type="primary", use_container_width=True, key=f"next_dm_{idx}"):
+        if selected is None:
+            st.warning("항목을 선택해 주세요.")
             return
-        for k, v in answers.items():
-            st.session_state["responses"][k] = v
-        utils.capture_rt_end("dm_page")
-        utils.go_to("cr_intro")
+        st.session_state["responses"][q["key"]] = selected
+        utils.capture_rt_end(rt_key)
+
+        # 다음 DM 페이지가 있으면 그쪽으로, 마지막이면 CR 도입으로
+        if idx + 1 < len(config.DM_QUESTIONS):
+            utils.go_to(config.DM_PAGE_KEYS[idx + 1])
+        else:
+            utils.go_to("cr_intro")
+
+
+def render_dm_age() -> None:
+    _render_dm_page(0)
+
+
+def render_dm_gender() -> None:
+    _render_dm_page(1)
+
+
+def render_dm_region() -> None:
+    _render_dm_page(2)
+
+
+def render_dm_religion() -> None:
+    _render_dm_page(3)
 
 
 # =============================================================================
@@ -113,98 +137,113 @@ def render_cr_intro() -> None:
     st.markdown("### 비교 응답 블록 안내")
     st.markdown(
         """
-        지금부터 5가지 상황에서 **같은 상황을 두 가지 종교로** 제시하는 짝지어진
-        질문이 이어집니다.
+        지금부터 4가지 상황에서 **같은 상황을 세 가지 종교로** 제시하는
+        문항들이 이어집니다.
 
         - 정답이 없습니다. 평소 느끼시는 가장 가까운 반응을 골라 주세요.
         - "바람직해 보이는 답"보다 **솔직한 첫 반응**이 더 유용한 데이터가 됩니다.
-        - 각 시나리오는 두 화면에 걸쳐 표시됩니다.
+        - 각 시나리오는 세 화면에 걸쳐 표시됩니다 (총 12개 문항).
         """
     )
     if st.button("시작하기", type="primary", use_container_width=True):
-        utils.go_to("cr_Q1A")
+        # 첫 CR 페이지로
+        utils.go_to(CR_PAGE_ORDER[0])
 
 
 # =============================================================================
-# CR — 비교 응답 (10페이지, 시나리오당 2개)
+# CR — 비교 응답 (4 시나리오 × 3 종교 = 12 페이지)
+# =============================================================================
+#
+# 페이지 키 규약:
+#   cr_Q{n}_{pos}   pos = 0, 1, 2 (시나리오 내 제시 순서)
+#
+# 실제 어느 종교가 어느 pos에 표시될지는 응답자별로 다르다
+# (utils.assign_religion_orders가 결정).
 # =============================================================================
 
-def _render_cr_item(qid: str, ab: str) -> None:
-    """CR 한 문항(Q{1..5}{A|B})을 렌더링한다."""
-    version = st.session_state["version"]
-    cb = st.session_state["cb_condition"]
-    option_order = utils.get_option_order(cb)
-    scenarios = config.SCENARIOS[version]
-    sc = next(s for s in scenarios if s["id"] == qid)
+# 페이지 순서: Q1의 pos 0, 1, 2 → Q2의 pos 0, 1, 2 → ...
+CR_PAGE_ORDER = [
+    f"cr_{sc['id']}_{pos}"
+    for sc in config.SCENARIOS
+    for pos in range(len(config.COMPARISON_RELIGIONS))
+]
 
-    rt_key = f"{qid.lower()}{ab.lower()}"
+
+def _render_cr_item(qid: str, pos: int) -> None:
+    """CR 한 문항(시나리오 qid의 pos번째 종교)을 렌더링한다."""
+    option_order = st.session_state["option_order"]
+    religion_orders = st.session_state["religion_orders"]
+    religion_code = religion_orders[qid][pos]
+
+    sc = next(s for s in config.SCENARIOS if s["id"] == qid)
+    rt_key = f"q{qid[1:]}_{religion_code.lower()}"  # 예: q1_pt, q1_is, q1_nr
     utils.capture_rt_start(rt_key)
 
-    # 진행률: Q1A=2/9, Q1B=2/9 … 단계로 보기 좋게 변환
-    step_no = 2  # 비교 응답 블록은 단계 2
-    total = 9
-    progress_header(step_no, total, f"시나리오 {qid[-1]} — {sc['title']}")
+    # 현재 단계 산출 (진행률 표시용)
+    # 단계 2~5: DM 4. 단계 6 ~ 17: CR 12. 그 뒤 CF/DQ/MC/FB.
+    sc_idx = next(i for i, s in enumerate(config.SCENARIOS) if s["id"] == qid)
+    n_rel = len(config.COMPARISON_RELIGIONS)
+    cr_step_no = 6 + sc_idx * n_rel + pos  # 6 ~ 17
+    progress_header(cr_step_no, f"시나리오 {qid[-1]} — {sc['title']}")
 
-    # 역균형화: 페어 순서에 따라 어느 시나리오 본문을 표시할지 결정
-    pair_ordered = utils.get_pair_order(sc["pair"], cb)
-    # cb_condition이 beta면 stem_b가 화면 A로, stem_a가 화면 B로 가야 한다
-    if cb.startswith("beta"):
-        stem = sc["stem_b"] if ab == "A" else sc["stem_a"]
-    else:
-        stem = sc["stem_a"] if ab == "A" else sc["stem_b"]
-
+    stem = sc["stems"][religion_code]
     st.markdown(f"#### {stem}")
+
     display_options = utils.get_display_options(sc["options"], option_order)
     selected = st.radio(
         "가장 가까운 답을 골라 주세요.",
         display_options,
         index=None,
-        key=f"cr_{qid}{ab}_widget",
+        key=f"cr_{qid}_{pos}_widget",
         label_visibility="collapsed",
     )
 
-    col1, col2 = st.columns([1, 1])
-    with col2:
-        if st.button("다음", type="primary", use_container_width=True, key=f"next_{qid}{ab}"):
-            if selected is None:
-                st.warning("답을 선택해 주세요.")
-                return
-            selected_idx = display_options.index(selected)
-            normalized = utils.normalize_response(selected_idx, option_order)
-            st.session_state["responses"][f"{qid}{ab}_response"] = normalized
-            utils.capture_rt_end(rt_key)
+    if st.button(
+        "다음",
+        type="primary",
+        use_container_width=True,
+        key=f"next_cr_{qid}_{pos}",
+    ):
+        if selected is None:
+            st.warning("답을 선택해 주세요.")
+            return
 
-            # 다음 페이지로
-            order = _CR_PAGE_ORDER
-            current_idx = order.index(f"cr_{qid}{ab}")
-            next_page = order[current_idx + 1] if current_idx + 1 < len(order) else "cf"
-            utils.go_to(next_page)
+        selected_idx = display_options.index(selected)
+        normalized = utils.normalize_response(selected_idx, option_order)
+        # 응답 저장 키: "Q1_PT", "Q1_IS", ...
+        st.session_state["responses"][f"{qid}_{religion_code}"] = normalized
+        utils.capture_rt_end(rt_key)
 
-
-# CR 페이지 순서: Q1A→Q1B→…→Q5B→CF
-_CR_PAGE_ORDER = [f"cr_Q{i}{ab}" for i in (1, 2, 3, 4, 5) for ab in ("A", "B")]
+        # 다음 페이지로
+        current_idx = CR_PAGE_ORDER.index(f"cr_{qid}_{pos}")
+        if current_idx + 1 < len(CR_PAGE_ORDER):
+            utils.go_to(CR_PAGE_ORDER[current_idx + 1])
+        else:
+            # CR 블록 종료 → CF 페이지
+            utils.go_to("cf")
 
 
 def render_cr_page(page_key: str) -> None:
     """app.py에서 호출할 단일 진입점.
 
-    page_key 예: "cr_Q3A"
+    page_key 예: "cr_Q3_1" (시나리오 Q3의 2번째 종교)
     """
-    _, qid_ab = page_key.split("_")
-    qid, ab = qid_ab[:2], qid_ab[2]
-    _render_cr_item(qid, ab)
+    parts = page_key.split("_")
+    # parts = ["cr", "Q3", "1"]
+    qid = parts[1]
+    pos = int(parts[2])
+    _render_cr_item(qid, pos)
 
 
 # =============================================================================
-# CF — 반사실 확인 (1문항)
+# CF — 반사실 확인 (1문항, Q3 직후) — 백그라운드 수집
 # =============================================================================
 
 def render_cf() -> None:
     utils.capture_rt_start("cf")
-    progress_header(3, 9, "잠시 멈추고 돌아보기")
+    progress_header(18, "잠시 멈추고 돌아보기")
 
-    version = st.session_state["version"]
-    st.markdown(config.CF_INTRO[version])
+    st.markdown(config.CF_INTRO)
     st.markdown(f"#### {config.CF_QUESTION}")
 
     selected = st.radio(
@@ -220,18 +259,18 @@ def render_cf() -> None:
             st.warning("답을 선택해 주세요.")
             return
         cf_idx = config.CF_OPTIONS.index(selected) + 1  # 1~4 코딩
-        st.session_state["responses"]["cf_q5_response"] = cf_idx
+        st.session_state["responses"]["cf_q3_response"] = cf_idx
         utils.capture_rt_end("cf")
         utils.go_to("dq")
 
 
 # =============================================================================
-# DQ — 직접 질문 닻 (1문항)
+# DQ — 직접 질문 닻 (1문항) — 백그라운드 수집
 # =============================================================================
 
 def render_dq() -> None:
     utils.capture_rt_start("dq")
-    progress_header(4, 9, "직접 질문")
+    progress_header(19, "직접 질문")
 
     st.markdown(f"#### {config.DQ_QUESTION}")
     selected = st.radio(
@@ -258,7 +297,7 @@ def render_dq() -> None:
 
 def render_mc() -> None:
     utils.capture_rt_start("mc")
-    progress_header(5, 9, "응답 점검")
+    progress_header(20, "응답 점검")
 
     mc01 = st.radio(
         config.MC_01_QUESTION,
@@ -293,7 +332,7 @@ def render_mc() -> None:
 
 def render_fb() -> None:
     utils.capture_rt_start("fb")
-    progress_header(6, 9, "솔직함 점검")
+    progress_header(21, "솔직함 점검")
 
     fb01 = st.radio(
         config.FB_01_QUESTION,
@@ -317,44 +356,3 @@ def render_fb() -> None:
         st.session_state["responses"]["fb_02_text"] = fb02 or ""
         utils.capture_rt_end("fb")
         utils.go_to("results")
-
-
-# =============================================================================
-# MT — 거울 테스트 (2문항, 결과 페이지 후)
-# =============================================================================
-
-def render_mt() -> None:
-    utils.capture_rt_start("mt")
-    progress_header(8, 9, "되돌아보는 시간")
-
-    st.markdown(config.MT_INTRO)
-    st.markdown("---")
-
-    mt01 = st.radio(
-        config.MT_01_QUESTION,
-        config.MT_01_OPTIONS,
-        index=None,
-        key="mt01_widget",
-    )
-    mt02 = st.text_area(
-        config.MT_02_QUESTION,
-        max_chars=300,
-        key="mt02_widget",
-    )
-
-    col1, col2 = st.columns(2)
-    with col1:
-        skip = st.button("건너뛰기", use_container_width=True)
-    with col2:
-        submit = st.button("제출하고 마치기", type="primary", use_container_width=True)
-
-    if skip or submit:
-        if submit and mt01 is not None:
-            st.session_state["responses"]["mt_01_response"] = (
-                config.MT_01_OPTIONS.index(mt01) + 1
-            )
-        else:
-            st.session_state["responses"]["mt_01_response"] = None
-        st.session_state["responses"]["mt_02_text"] = (mt02 or "") if submit else ""
-        utils.capture_rt_end("mt")
-        utils.go_to("debriefing")

@@ -1,12 +1,12 @@
 """
-RDAP 퀵버전 V4 — 보조 함수 모음
+RDAP 퀵버전 — 보조 함수 모음
 
 본 모듈은 다음 기능을 제공한다:
 - RT(반응 시간) 캡처 헬퍼 (시작/종료, 페이지 재실행 보호)
-- 응답자 버전 배정 (A/B/C, 가중치 적용)
-- 역균형화 조건 배정 (α/β × forward/reverse = 4조건)
+- 역균형화 조건 배정 (선택지 forward/reverse + 시나리오별 3종교 순서)
 - RT 품질 플래그 산출
-- 응답값 정규화 (선택지 1~4 → 점수 0~3, 역균형화 보정 포함)
+- 응답값 정규화 (선택지 인덱스 → 점수 0~3)
+- 세션 초기화 / 페이지 전환
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import config
 
 
 # =============================================================================
-# RT 캡처 (V4 §4.1)
+# RT 캡처
 # =============================================================================
 
 def capture_rt_start(key: str) -> None:
@@ -64,12 +64,12 @@ def get_rt(key: str) -> int | None:
 
 
 def check_rt_anomaly(cr_keys: Iterable[str]) -> list[str]:
-    """10개 CR RT를 점검해 품질 플래그 목록을 반환한다 (V4 §4.1.5).
+    """CR RT를 점검해 품질 플래그 목록을 반환한다.
 
     플래그:
-    - rt_too_fast: 1개 이상이 1500ms 미만
-    - rt_too_slow: 1개 이상이 90000ms 초과
-    - rt_inconsistent: 10개 RT의 변동계수 < 0.15
+    - rt_too_fast: 1개 이상이 RT_TOO_FAST_MS 미만
+    - rt_too_slow: 1개 이상이 RT_TOO_SLOW_MS 초과
+    - rt_inconsistent: 전체 RT의 변동계수 < RT_INCONSISTENT_CV
     """
     rts = [get_rt(k) for k in cr_keys]
     rts = [r for r in rts if r is not None]
@@ -94,35 +94,39 @@ def check_rt_anomaly(cr_keys: Iterable[str]) -> list[str]:
 
 
 # =============================================================================
-# 버전 배정 (V4 §0 — 메인 A 단독 배포가 원칙이나, 백업 B·C 운영 시를 위한 확장)
+# 역균형화 — 선택지 순서 + 시나리오별 3종교 제시 순서
 # =============================================================================
 
-def assign_version(weights: dict[str, float] | None = None) -> str:
-    """응답자에게 유형(A/B/C)을 배정한다.
+def assign_option_order() -> str:
+    """선택지 순서를 무작위 배정한다 (forward / reverse)."""
+    return random.choice(["forward", "reverse"])
 
-    기본 가중치는 A 100% (메인 단독 배포 원칙). secrets에서 가중치를
-    조정해 백업 유형을 점진적으로 투입할 수 있다.
+
+def assign_religion_orders(scenarios: list[dict]) -> dict[str, list[str]]:
+    """시나리오마다 3종교의 화면 제시 순서를 무작위 셔플한다.
+
+    반환: {"Q1": ["IS", "NR", "PT"], "Q2": ["PT", "IS", "NR"], ...}
+
+    동일 응답자가 모든 시나리오에서 같은 순서로 보면 순서 효과가 시나리오에
+    누적되므로, 시나리오마다 독립적으로 셔플한다.
     """
-    if weights is None:
-        weights = {"A": 1.0, "B": 0.0, "C": 0.0}
-
-    versions = list(weights.keys())
-    w = [weights[v] for v in versions]
-    if sum(w) <= 0:
-        return "A"
-    return random.choices(versions, weights=w, k=1)[0]
+    orders: dict[str, list[str]] = {}
+    for sc in scenarios:
+        rels = list(config.COMPARISON_RELIGIONS)
+        random.shuffle(rels)
+        orders[sc["id"]] = rels
+    return orders
 
 
-def assign_counterbalance() -> str:
-    """역균형화 조건을 배정한다 (4조건 균등 무작위).
+def build_cb_condition(option_order: str, religion_orders: dict[str, list[str]]) -> str:
+    """역균형화 조건을 단일 문자열로 직렬화한다 (시트 저장용).
 
-    조건은 두 차원의 곱이다:
-    - 페어 내 종교 순서: alpha (A→B) / beta (B→A)
-    - 선택지 순서: forward (① 개방 → ④ 폐쇄) / reverse (④ 폐쇄 → ① 개방)
+    예: "forward|Q1:IS-NR-PT|Q2:PT-IS-NR|..."
     """
-    pair_order = random.choice(["alpha", "beta"])
-    option_order = random.choice(["forward", "reverse"])
-    return f"{pair_order}_{option_order}"
+    parts = [option_order]
+    for qid, rels in religion_orders.items():
+        parts.append(f"{qid}:{'-'.join(rels)}")
+    return "|".join(parts)
 
 
 # =============================================================================
@@ -133,7 +137,7 @@ def normalize_response(selected_idx: int, option_order: str) -> int:
     """선택지 인덱스(0~3)를 정규화 점수(0~3, 폐쇄=고점)로 변환한다.
 
     forward 조건: ①(0) → 0점, ②(1) → 1점, ③(2) → 2점, ④(3) → 3점
-    reverse 조건: 선택지 순서가 역전돼 표시되었으므로, 인덱스를 뒤집어 점수 산출
+    reverse 조건: 선택지가 역순으로 표시되므로 인덱스를 뒤집어 점수 산출
     """
     if option_order == "reverse":
         return 3 - selected_idx
@@ -147,36 +151,26 @@ def get_display_options(options: list[str], option_order: str) -> list[str]:
     return list(options)
 
 
-def get_pair_order(pair: tuple[str, str], cb_condition: str) -> tuple[str, str]:
-    """역균형화 조건에 따라 비교 쌍의 제시 순서를 반환한다.
-
-    alpha: (A, B), beta: (B, A)
-    """
-    if cb_condition.startswith("beta"):
-        return (pair[1], pair[0])
-    return pair
-
-
-def get_option_order(cb_condition: str) -> str:
-    """역균형화 조건에서 option_order 부분을 추출한다."""
-    return cb_condition.split("_")[1] if "_" in cb_condition else "forward"
-
-
 # =============================================================================
 # 세션 초기화
 # =============================================================================
 
-def init_session(version_weights: dict[str, float] | None = None) -> None:
+def init_session() -> None:
     """세션 상태의 초기 키들을 보장한다.
 
     재호출 시에는 기존 값을 보존한다 (Streamlit 재실행 안전).
     """
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid.uuid4())
-    if "version" not in st.session_state:
-        st.session_state["version"] = assign_version(version_weights)
+    if "option_order" not in st.session_state:
+        st.session_state["option_order"] = assign_option_order()
+    if "religion_orders" not in st.session_state:
+        st.session_state["religion_orders"] = assign_religion_orders(config.SCENARIOS)
     if "cb_condition" not in st.session_state:
-        st.session_state["cb_condition"] = assign_counterbalance()
+        st.session_state["cb_condition"] = build_cb_condition(
+            st.session_state["option_order"],
+            st.session_state["religion_orders"],
+        )
     if "page" not in st.session_state:
         st.session_state["page"] = "consent"
     if "responses" not in st.session_state:
