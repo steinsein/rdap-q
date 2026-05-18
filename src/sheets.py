@@ -121,8 +121,6 @@ MAIN_HEADERS = [
     *_CR_RESPONSE_COLS,
     # CR RT (ms)
     *_CR_RT_COLS,
-    # CF (Q3 직후, 백그라운드 수집)
-    "cf_q3_response", "rt_cf_ms",
     # DQ (백그라운드 수집)
     "dq_01_response", "rt_dq_ms",
     # MC

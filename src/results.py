@@ -198,9 +198,6 @@ def _build_save_payload(cr_scores: dict[str, int], scores: dict) -> dict:
         },
         # CR RT
         **{f"rt_{k}_ms": utils.get_rt(k) or 0 for k in cr_rt_keys},
-        # CF (백그라운드)
-        "cf_q3_response": resp.get("cf_q3_response", ""),
-        "rt_cf_ms": utils.get_rt("cf") or 0,
         # DQ (백그라운드)
         "dq_01_response": resp.get("dq_01_response", ""),
         "rt_dq_ms": utils.get_rt("dq") or 0,

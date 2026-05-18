@@ -1,7 +1,7 @@
 """
 RDAP 퀵버전 — 문항 렌더링 함수
 
-본 모듈은 각 블록(SC, DM, CR, CF, DQ, MC, FB)의 UI를 그린다.
+본 모듈은 각 블록(SC, DM, CR, DQ, MC, FB)의 UI를 그린다.
 페이지 라우팅(어느 시점에 어느 블록을 호출할지)은 app.py가 담당하며,
 본 모듈의 각 함수는 해당 페이지에 진입한 시점에 한 번씩 호출된다.
 
@@ -22,9 +22,9 @@ from src import utils
 # =============================================================================
 # 진행률 헤더
 # =============================================================================
-# 총 단계: 동의(1) + 인구통계 4 + CR 12 + CF + DQ + MC + FB = 21
+# 총 단계: 동의(1) + 인구통계 4 + CR 12 + DQ + MC + FB = 20
 # 인구통계 시작 단계: 2
-_TOTAL_STEPS = 21
+_TOTAL_STEPS = 20
 
 
 def progress_header(current: int, title: str) -> None:
@@ -39,7 +39,7 @@ def progress_header(current: int, title: str) -> None:
 # =============================================================================
 
 def render_consent_and_screen() -> None:
-    """SC-01 (참여 동의) + SC-02 (연령 확인)을 한 화면에 표시."""
+    """SC-01 (참여 동의)을 표시."""
     utils.capture_rt_start("consent_page")
 
     st.title(config.TOOL_NAME)
@@ -55,29 +55,15 @@ def render_consent_and_screen() -> None:
         label_visibility="collapsed",
     )
 
-    st.markdown(f"#### {config.SC_02_QUESTION}")
-    sc02 = st.radio(
-        config.SC_02_QUESTION,
-        config.SC_02_OPTIONS,
-        index=None,
-        key="sc02_widget",
-        label_visibility="collapsed",
-    )
-
     if st.button("다음", type="primary", use_container_width=True):
-        if sc01 is None or sc02 is None:
-            st.warning("두 항목 모두 응답해 주세요.")
+        if sc01 is None:
+            st.warning("항목을 선택해 주세요.")
             return
         if sc01 == config.SC_01_OPTIONS[1]:  # 참여하지 않음
             st.session_state["responses"]["sc01"] = 2
             utils.go_to("declined")
             return
-        if sc02 == config.SC_02_OPTIONS[1]:  # 18세 미만
-            st.session_state["responses"]["sc02"] = 2
-            utils.go_to("underage")
-            return
         st.session_state["responses"]["sc01"] = 1
-        st.session_state["responses"]["sc02"] = 1
         utils.capture_rt_end("consent_page")
         utils.go_to(config.DM_PAGE_KEYS[0])
 
@@ -165,7 +151,7 @@ def _render_cr_item(qid: str, pos: int) -> None:
     utils.capture_rt_start(rt_key)
 
     # 현재 단계 산출 (진행률 표시용)
-    # 단계 2~5: DM 4. 단계 6 ~ 17: CR 12. 그 뒤 CF/DQ/MC/FB.
+    # 단계 2~5: DM 4. 단계 6 ~ 17: CR 12. 그 뒤 DQ/MC/FB.
     sc_idx = next(i for i, s in enumerate(config.SCENARIOS) if s["id"] == qid)
     n_rel = len(config.COMPARISON_RELIGIONS)
     cr_step_no = 6 + sc_idx * n_rel + pos  # 6 ~ 17
@@ -204,8 +190,8 @@ def _render_cr_item(qid: str, pos: int) -> None:
         if current_idx + 1 < len(CR_PAGE_ORDER):
             utils.go_to(CR_PAGE_ORDER[current_idx + 1])
         else:
-            # CR 블록 종료 → CF 페이지
-            utils.go_to("cf")
+            # CR 블록 종료 → DQ 페이지
+            utils.go_to("dq")
 
 
 def render_cr_page(page_key: str) -> None:
@@ -221,41 +207,12 @@ def render_cr_page(page_key: str) -> None:
 
 
 # =============================================================================
-# CF — 반사실 확인 (1문항, Q3 직후) — 백그라운드 수집
-# =============================================================================
-
-def render_cf() -> None:
-    utils.capture_rt_start("cf")
-    progress_header(18, "잠시 멈추고 돌아보기")
-
-    st.markdown(config.CF_INTRO)
-    st.markdown(f"#### {config.CF_QUESTION}")
-
-    selected = st.radio(
-        "선택해 주세요.",
-        config.CF_OPTIONS,
-        index=None,
-        key="cf_widget",
-        label_visibility="collapsed",
-    )
-
-    if st.button("다음", type="primary", use_container_width=True):
-        if selected is None:
-            st.warning("답을 선택해 주세요.")
-            return
-        cf_idx = config.CF_OPTIONS.index(selected) + 1  # 1~4 코딩
-        st.session_state["responses"]["cf_q3_response"] = cf_idx
-        utils.capture_rt_end("cf")
-        utils.go_to("dq")
-
-
-# =============================================================================
 # DQ — 직접 질문 닻 (1문항) — 백그라운드 수집
 # =============================================================================
 
 def render_dq() -> None:
     utils.capture_rt_start("dq")
-    progress_header(19, "직접 질문")
+    progress_header(18, "직접 질문")
 
     st.markdown(f"#### {config.DQ_QUESTION}")
     selected = st.radio(
@@ -282,7 +239,7 @@ def render_dq() -> None:
 
 def render_mc() -> None:
     utils.capture_rt_start("mc")
-    progress_header(20, "응답 점검")
+    progress_header(19, "응답 점검")
 
     st.markdown(f"#### {config.MC_01_QUESTION}")
     mc01 = st.radio(
@@ -322,7 +279,7 @@ def render_mc() -> None:
 
 def render_fb() -> None:
     utils.capture_rt_start("fb")
-    progress_header(21, "솔직함 점검")
+    progress_header(20, "솔직함 점검")
 
     fb01 = st.radio(
         config.FB_01_QUESTION,
