@@ -1,14 +1,19 @@
 """
-RDAP 퀵버전 V4 — Streamlit 메인 엔트리
+RDAP 퀵버전 — Streamlit 메인 엔트리
 
 본 파일은 페이지 라우팅과 세션 초기화만 담당한다. 실제 화면 렌더링은
 `src/` 하위의 모듈이 수행한다.
 
 페이지 흐름:
-    consent → demographics → cr_intro
-        → cr_Q1A → cr_Q1B → cr_Q2A → … → cr_Q5B
+    consent
+        → dm_age → dm_gender → dm_region → dm_religion
+        → cr_intro
+        → cr_Q1_0 → cr_Q1_1 → cr_Q1_2
+        → cr_Q2_0 → cr_Q2_1 → cr_Q2_2
+        → cr_Q3_0 → cr_Q3_1 → cr_Q3_2
+        → cr_Q4_0 → cr_Q4_1 → cr_Q4_2
         → cf → dq → mc → fb
-        → results → mt → debriefing
+        → results → debriefing
 
 종료 페이지:
     declined  : SC-01에서 동의하지 않음
@@ -24,28 +29,37 @@ from __future__ import annotations
 import streamlit as st
 
 import config
-from src import questions, results, sheets, utils
+from src import questions, results, utils
 
 # =============================================================================
 # 페이지 설정
 # =============================================================================
 
 st.set_page_config(
-    page_title="종교 다양성 태도 프로파일(퀵버전)",
-    page_icon="📋",
+    page_title="RDAP 종교 다양성 태도 프로파일 (퀵버전)",
+    page_icon="🪞",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
 
-# 모바일 친화 CSS — Plotly 차트의 좌우 여백 조정, 라디오 간격, 한글 폰트
+# 모바일 친화 CSS — 한글 자음 짤림 방지를 위해 상단 패딩과 line-height 확보
 st.markdown(
     """
     <style>
-        .block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
+        .block-container { padding-top: 2.4rem; padding-bottom: 2rem; }
+        h1, h2, h3, h4 {
+            font-family: 'Pretendard', -apple-system, system-ui, sans-serif;
+            line-height: 1.6;
+            margin-top: 1.2rem;
+        }
+        h1 { padding-top: 0.3rem; }
         div[data-testid="stRadio"] label { padding: 6px 0; }
-        div[data-testid="stMetric"] { background: #F9FAFB; padding: 12px; border-radius: 8px; }
+        div[data-testid="stMetric"] {
+            background: #F9FAFB;
+            padding: 12px;
+            border-radius: 8px;
+        }
         div[data-testid="stMetricLabel"] { font-size: 12px; color: #6B7280; }
-        h1, h2, h3, h4 { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -53,19 +67,10 @@ st.markdown(
 
 
 # =============================================================================
-# 세션 초기화 — 가중치는 secrets에서 조정 가능
+# 세션 초기화
 # =============================================================================
 
-def _version_weights() -> dict[str, float]:
-    """secrets 또는 환경 변수에서 유형 가중치를 읽는다. 기본은 A 100%."""
-    weights = st.secrets.get("version_weights") if hasattr(st, "secrets") else None
-    if weights:
-        # toml은 dict 유사 객체로 들어오므로 float 변환
-        return {k: float(v) for k, v in weights.items()}
-    return {"A": 1.0, "B": 0.0, "C": 0.0}
-
-
-utils.init_session(_version_weights())
+utils.init_session()
 
 
 # =============================================================================
@@ -87,23 +92,9 @@ def _page_underage() -> None:
 
 
 def _page_debriefing() -> None:
-    """결과 페이지·MT 응답 후 마지막 화면."""
-    # MT 응답 저장 (1회만)
-    if not st.session_state.get("saved_mt", False):
-        resp = st.session_state["responses"]
-        scores = st.session_state.get("computed_scores", {})
-        payload = {
-            "session_id": st.session_state["session_id"],
-            "version": st.session_state["version"],
-            "mt_01_response": resp.get("mt_01_response", ""),
-            "mt_02_text": resp.get("mt_02_text", ""),
-            "result_profile_shown": scores.get("profile_type", ""),
-            "result_deviation_shown": scores.get("deviation_total", ""),
-        }
-        st.session_state["saved_mt"] = sheets.append_mt_response(payload)
-
+    """결과 페이지 이후 마지막 화면."""
     st.title("마무리")
-    st.markdown(config.MT_AFTER_MESSAGE)
+    st.markdown(config.DEBRIEFING_MESSAGE)
 
     with st.expander("이 도구에 대해 알고 싶다면"):
         st.markdown(
@@ -128,23 +119,27 @@ PAGE_HANDLERS = {
     "consent": questions.render_consent_and_screen,
     "declined": _page_declined,
     "underage": _page_underage,
-    "demographics": questions.render_demographics,
+    # 인구통계 4 페이지
+    "dm_age": questions.render_dm_age,
+    "dm_gender": questions.render_dm_gender,
+    "dm_region": questions.render_dm_region,
+    "dm_religion": questions.render_dm_religion,
+    # CR 도입
     "cr_intro": questions.render_cr_intro,
+    # 후속 블록
     "cf": questions.render_cf,
     "dq": questions.render_dq,
     "mc": questions.render_mc,
     "fb": questions.render_fb,
+    # 결과·디브리핑
     "results": results.render_results,
-    "mt": questions.render_mt,
     "debriefing": _page_debriefing,
 }
 
-# CR 페이지는 동적 처리
-for qid in ("Q1", "Q2", "Q3", "Q4", "Q5"):
-    for ab in ("A", "B"):
-        key = f"cr_{qid}{ab}"
-        # 클로저 트랩 회피를 위해 default arg로 캡처
-        PAGE_HANDLERS[key] = (lambda k=key: questions.render_cr_page(k))
+# CR 페이지(12개)는 동적 등록
+for _key in questions.CR_PAGE_ORDER:
+    # 클로저 트랩 회피를 위해 default arg로 캡처
+    PAGE_HANDLERS[_key] = (lambda k=_key: questions.render_cr_page(k))
 
 
 def main() -> None:

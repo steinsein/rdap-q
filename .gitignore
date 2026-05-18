@@ -1,37 +1,15 @@
-# Streamlit secrets — 절대 커밋 금지
-.streamlit/secrets.toml
-*.secrets.toml
-
-# 로컬 응답 백업
-/tmp/rdap_backup/
-rdap_backup/
-
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# 가상환경
 .venv/
 venv/
 env/
-ENV/
-
-# IDE / OS
-.vscode/
-.idea/
-*.swp
-.DS_Store
-Thumbs.db
-
-# Streamlit 자체 캐시
-.streamlit/cache/
-
-# 로그
+.env
+.streamlit/secrets.toml
 *.log
+.DS_Store
+.idea/
+.vscode/
+*.swp
+/tmp/rdap_backup/
