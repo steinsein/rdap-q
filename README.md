@@ -26,81 +26,9 @@ rdap-q/
     └── sheets.py             # Google Sheets I/O (실패 시 로컬 백업)
 ```
 
-### 모듈 간 의존성
-
-```
-app.py
- ├── config
- ├── src/utils
- ├── src/questions ──► config, src/utils
- ├── src/results   ──► config, src/scoring, src/visualizations, src/sheets, src/utils
- └── src/sheets    ──► config
-
-src/scoring        ──► config              (부수효과 없음, 테스트 용이)
-src/visualizations ──► config              (Plotly Figure만 반환)
-```
-
-순환 의존성은 없다. `config.py`는 모든 모듈이 의존하는 종착점이다.
-
 ---
 
-## 2. 빠른 시작 — 로컬 실행
-
-### 2.1. 의존성 설치
-
-```bash
-git clone https://github.com/YOUR_USERNAME/rdap-q.git
-cd rdap-q
-conda activate rdap            # 또는 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2.2. 실행
-
-```bash
-streamlit run app.py
-```
-
-브라우저에서 `http://localhost:8501` 접속.
-
----
-
-## 3. Streamlit Community Cloud 배포
-
-### 3.1. 사전 준비 — Google Cloud 측
-
-1. Google Cloud 콘솔에서 새 프로젝트 생성 (예: `ReligiousDiversityAttitudePro`).
-2. **APIs & Services → Library**에서 다음 API 활성화:
-   - Google Sheets API
-   - Google Drive API
-3. **APIs & Services → Credentials → Create Credentials → Service Account**:
-   - 서비스 계정 생성 후 JSON 키 다운로드.
-4. 응답을 저장할 Google Sheets를 새로 만들고, 위 서비스 계정 이메일을 **"편집자"** 권한으로 공유.
-5. 시트 탭은 코드가 자동 생성한다 (`responses`, `mt_responses`). 미리 만들 필요는 없으나, 수동으로 만들 때는 탭 이름을 정확히 일치시켜야 한다.
-
-### 3.2. GitHub 업로드
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: RDAP quick version"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/rdap-q.git
-git push -u origin main
-```
-
-> `secrets.toml`은 `.gitignore`에 등록되어 자동 제외된다. 절대 커밋하지 말 것.
-
-### 3.3. Streamlit Cloud 배포
-
-1. [share.streamlit.io](https://share.streamlit.io) → **New app**.
-2. 저장소: `YOUR_USERNAME/rdap-q`, 브랜치: `main`, 메인 파일: `app.py`.
-3. **Advanced settings → Secrets** 화면에서 `.streamlit/secrets.toml.example`의 내용을 그대로 붙여 넣고 자신의 키로 채워 저장.
-4. **Deploy** 클릭. 첫 빌드는 약 2~3분.
-
----
-
-## 4. 설문 구조
+## 2. 설문 구조
 
 본 도구는 다음 24문항으로 구성된다.
 
@@ -121,43 +49,7 @@ git push -u origin main
 
 ---
 
-## 5. 유형 운영 정책
-
-- **유형 A (메인)** 를 기본으로 단독 배포한다.
-- 유형 B (백업 1), 유형 C (백업 2) 는 코드에 포함되어 있으며, `secrets.toml`의 `[version_weights]` 가중치로 점진 투입할 수 있다.
-- 세 유형은 동일한 측정 구조(10 CR + 1 CF + …)를 갖고 시나리오 내용만 다르다.
-
-| 유형 | 중심 축 | Q5 시나리오 |
-|---|---|---|
-| A | 직접·정서·능동 | 가족의 종교 간 결혼 |
-| B | 행동 부담·구조적 요청 | 친구의 종교적 변화 |
-| C | 매개·인지·수동 | 이웃의 종교 행동 |
-
----
-
-## 6. 데이터 스키마
-
-응답은 Google Sheets의 두 탭에 저장된다.
-
-### 6.1. `responses` 탭 (메인)
-
-총 약 46개 컬럼. 자세한 헤더 정의는 `src/sheets.py::MAIN_HEADERS` 참조. 주요 컬럼군:
-- 메타 (`timestamp`, `session_id`, `version`, `cb_condition`)
-- 인구통계 (4)
-- CR 정규화 응답 점수 (10)
-- CR RT (10)
-- CF / DQ / MC / FB
-- RT 품질 플래그 (`rt_anomaly_flags`)
-- 산출 점수 (`overall_caution`, `deviation_total`, `dom_*`, `dq_cr_alignment`, `rt_asymmetry`, `cf_actual_match`, `profile_type`, `dominant_domain`)
-- 소요 시간
-
-### 6.2. `mt_responses` 탭 (분리 저장)
-
-거울 테스트 응답은 별도 탭에 저장된다. `session_id`로 메인 탭과 조인 가능하나, **분석은 도구 개선 목적으로만** 사용한다.
-
----
-
-## 7. 점수 산출 규칙
+## 3. 점수 산출 규칙
 
 `src/scoring.py`에 함수가 모두 포함되어 있다. 핵심 산출만 요약:
 
@@ -171,7 +63,7 @@ git push -u origin main
 
 ---
 
-## 8. RT 측정의 한계
+## 4. RT 측정의 한계
 
 - 본 도구의 RT는 **서버 사이드 `time.perf_counter()`** 기반이다.
 - 사용자가 페이지를 잠시 떠난 경우의 시간 부풀림은 보정 불가하다.
@@ -180,7 +72,7 @@ git push -u origin main
 
 ---
 
-## 9. 라이선스 및 인용
+## 5. 라이선스 및 인용
 
 본 도구는 RDAP 프로젝트 내부 자료이며, 학술 출판 시 다음을 인용한다.
 
