@@ -1,4 +1,4 @@
-# RDAP 퀵버전 — Streamlit 배포 저장소
+# RDAP 퀵버전
 
 **RDAP (Religious Diversity Attitude Profile)** 의 퀵버전 구현 저장소다. 종교 다양성에 대한 태도를 자기 성찰적으로 시각화하는 **교육적 도구**이며, 표준화된 심리 검사가 아니다.
 
