@@ -1,4 +1,4 @@
-# RDAP 퀵버전 — Streamlit 배포 저장소
+# RDAP 퀵버전
 
 **RDAP (Religious Diversity Attitude Profile)** 의 퀵버전 구현 저장소다. 종교 다양성에 대한 태도를 자기 성찰적으로 시각화하는 **교육적 도구**이며, 표준화된 심리 검사가 아니다.
 
@@ -27,82 +27,9 @@ rdap-q/
     ├── results.py            # 결과 페이지 3단계 컴포지션
     └── sheets.py             # Google Sheets I/O (실패 시 로컬 백업)
 ```
-
-### 모듈 간 의존성
-
-```
-app.py
- ├── config
- ├── src/utils
- ├── src/questions ──► config, src/utils
- ├── src/results   ──► config, src/scoring, src/visualizations, src/sheets, src/utils
- └── src/sheets    ──► config
-
-src/scoring        ──► config              (부수효과 없음, 테스트 용이)
-src/visualizations ──► config              (Plotly Figure만 반환)
-```
-
-순환 의존성은 없다. `config.py`는 모든 모듈이 의존하는 종착점이다.
-
 ---
 
-## 2. 빠른 시작 — 로컬 실행
-
-### 2.1. 의존성 설치
-
-```bash
-git clone https://github.com/YOUR_USERNAME/rdap-q.git
-cd rdap-q
-conda activate rdap            # 또는 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2.2. 실행
-
-```bash
-streamlit run app.py
-```
-
-브라우저에서 `http://localhost:8501` 접속.
-
----
-
-## 3. Streamlit Community Cloud 배포
-
-### 3.1. 사전 준비 — Google Cloud 측
-
-1. Google Cloud 콘솔에서 새 프로젝트 생성 (예: `ReligiousDiversityAttitudePro`).
-2. **APIs & Services → Library**에서 다음 API 활성화:
-   - Google Sheets API
-   - Google Drive API
-3. **APIs & Services → Credentials → Create Credentials → Service Account**:
-   서비스 계정 생성 후 JSON 키 다운로드.
-4. 응답을 저장할 Google Sheets를 새로 만들고, 위 서비스 계정 이메일을 **"편집자"** 권한으로 공유.
-5. 시트 탭은 코드가 자동 생성한다 (`responses` 단일 탭). 미리 만들 때는 탭 이름을 정확히 일치시켜야 한다.
-
-### 3.2. GitHub 업로드
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: RDAP quick version"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/rdap-q.git
-git push -u origin main
-```
-
-> `secrets.toml`은 `.gitignore`에 등록되어 자동 제외된다. 절대 커밋하지 말 것.
-
-### 3.3. Streamlit Cloud 배포
-
-1. [share.streamlit.io](https://share.streamlit.io) → **New app**.
-2. 저장소: `YOUR_USERNAME/rdap-q`, 브랜치: `main`, 메인 파일: `app.py`.
-3. **Advanced settings → Secrets** 화면에서 `.streamlit/secrets.toml.example`의 내용을 그대로 붙여 넣고 자신의 키로 채워 저장.
-4. **Deploy** 클릭. 첫 빌드는 약 2~3분.
-
----
-
-## 4. 설문 구조
+## 2. 설문 구조
 
 본 도구는 다음 약 20문항으로 구성된다.
 
@@ -121,7 +48,7 @@ git push -u origin main
 
 ---
 
-## 5. 비교 종교 — PT, IS, NR 3종교 구조
+## 3. 비교 종교 — PT, IS, NR 3종교 구조
 
 |  | 코드 | 표시 라벨 | RDAS 반영 |
 |---|:---:|---|:---:|
@@ -142,7 +69,7 @@ NR은 시나리오 표시 문구에서 "신종교"라는 명칭으로 노출되�
 
 ---
 
-## 6. RDAS — 점수 산출 공식
+## 4. RDAS — 점수 산출 공식
 
 ```
 pt_is_deviation = ∑ |Q*_PT − Q*_IS|     (4 시나리오 합산, 범위 0~12)
@@ -165,7 +92,7 @@ RDAS            = round(100 × (1 − pt_is_deviation / 12))
 
 ---
 
-## 7. 데이터 스키마
+## 5. 데이터 스키마
 
 응답은 Google Sheets의 단일 탭 `responses`에 저장된다.
 
@@ -186,7 +113,7 @@ RDAS            = round(100 × (1 − pt_is_deviation / 12))
 
 ---
 
-## 8. 측정 차원의 처리 방침
+## 6. 측정 차원의 처리 방침
 
 | 차원 | 응답자 노출 | 데이터 수집 |
 |---|:---:|:---:|
@@ -199,7 +126,7 @@ DQ·RT는 시트에 그대로 저장되어 사후 분석에서 응답 신뢰도 
 
 ---
 
-## 9. RT 측정의 한계
+## 7. RT 측정의 한계
 
 - 본 도구의 RT는 **서버 사이드 `time.perf_counter()`** 기반이다.
 - 사용자가 페이지를 잠시 떠난 경우의 시간 부풀림은 보정 불가하다.
@@ -207,7 +134,7 @@ DQ·RT는 시트에 그대로 저장되어 사후 분석에서 응답 신뢰도 
 
 ---
 
-## 10. 역균형화 설계
+## 8. 역균형화 설계
 
 응답자별로 두 차원에서 무작위 배정된다.
 
@@ -218,10 +145,8 @@ DQ·RT는 시트에 그대로 저장되어 사후 분석에서 응답 신뢰도 
 
 ---
 
-## 11. 라이선스 및 인용
+## 9. 라이선스 및 인용
 
 본 도구는 RDAP 프로젝트 내부 자료이며, 학술 출판 시 다음을 인용한다.
 
 > RDAP 프로젝트. (2026). RDAP 퀵버전: 종교 다양성 태도 프로파일 [Streamlit 애플리케이션].
-
-문의: 도구 개발팀.
