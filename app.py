@@ -31,8 +31,8 @@ from src import questions, results, sheets, utils
 # =============================================================================
 
 st.set_page_config(
-    page_title="🚪종교 다양성 태도 프로파일(퀵버전)",
-    page_icon="🚪",
+    page_title="종교 다양성 태도 프로파일(퀵버전)",
+    page_icon="📋",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
