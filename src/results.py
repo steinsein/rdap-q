@@ -96,7 +96,7 @@ def _stage_domains(scores: dict) -> None:
 
 def _stage_nr_reference(scores: dict) -> None:
     st.markdown("---")
-    st.markdown("##### 참고 — 신종교(NR)와의 차등")
+    st.markdown("##### 참고 — 신종교와의 차등")
 
     nr = scores["nr_reference"]
     pt_nr = nr["pt_nr_deviation"]
@@ -114,18 +114,18 @@ def _stage_nr_reference(scores: dict) -> None:
             line-height: 1.7;
         '>
         본 점수(RDAS)는 <b>개신교와 이슬람의 비교</b>를 기준으로 산출됩니다.<br>
-        "사회적으로 논란이 된 종교 단체"(NR)는 한국 사회에서 일정한 사회적 합의가
+        신종교는 한국 사회에서 일정한 사회적 합의가
         형성된 영역으로 보아 점수 산출에서는 제외하였습니다.<br><br>
         다만 비교 자료로 함께 보여드립니다:<br>
-        · 개신교 vs NR 차등: <b>{pt_nr}점</b> / 12점 만점<br>
-        · 이슬람 vs NR 차등: <b>{is_nr}점</b> / 12점 만점
+        · 개신교 vs 신종교 차등: <b>{pt_nr}점</b> / 12점 만점<br>
+        · 이슬람 vs 신종교 차등: <b>{is_nr}점</b> / 12점 만점
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     st.caption(
-        "차등이 크다는 것은 NR에 대해 다른 두 종교와 매우 다른 기준을 적용했다는 "
+        "차등이 크다는 것은 신종교에 대해 다른 두 종교와 매우 다른 기준을 적용했다는 "
         "신호로 읽을 수 있어요."
     )
 

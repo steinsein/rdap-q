@@ -46,18 +46,22 @@ def render_consent_and_screen() -> None:
     st.markdown(f"##### {config.CONSENT_TITLE}")
     st.info(config.CONSENT_TEXT)
 
+    st.markdown(f"#### {config.SC_01_QUESTION}")
     sc01 = st.radio(
         config.SC_01_QUESTION,
         config.SC_01_OPTIONS,
         index=None,
         key="sc01_widget",
+        label_visibility="collapsed",
     )
 
+    st.markdown(f"#### {config.SC_02_QUESTION}")
     sc02 = st.radio(
         config.SC_02_QUESTION,
         config.SC_02_OPTIONS,
         index=None,
         key="sc02_widget",
+        label_visibility="collapsed",
     )
 
     if st.button("다음", type="primary", use_container_width=True):
@@ -92,11 +96,13 @@ def _render_dm_page(idx: int) -> None:
     progress_header(2 + idx, "기본 정보")
     st.caption("응답은 통계 분석 목적으로만 사용됩니다.")
 
+    st.markdown(f"#### {q['label']}")
     selected = st.radio(
         q["label"],
         q["options"],
         index=None,
         key=f"dm_{q['key']}_widget",
+        label_visibility="collapsed",
     )
 
     if st.button("다음", type="primary", use_container_width=True, key=f"next_dm_{idx}"):
@@ -106,11 +112,11 @@ def _render_dm_page(idx: int) -> None:
         st.session_state["responses"][q["key"]] = selected
         utils.capture_rt_end(rt_key)
 
-        # 다음 DM 페이지가 있으면 그쪽으로, 마지막이면 CR 도입으로
+        # 다음 DM 페이지가 있으면 그쪽으로, 마지막이면 바로 첫 CR 페이지로 이동
         if idx + 1 < len(config.DM_QUESTIONS):
             utils.go_to(config.DM_PAGE_KEYS[idx + 1])
         else:
-            utils.go_to("cr_intro")
+            utils.go_to(CR_PAGE_ORDER[0])
 
 
 def render_dm_age() -> None:
@@ -127,27 +133,6 @@ def render_dm_region() -> None:
 
 def render_dm_religion() -> None:
     _render_dm_page(3)
-
-
-# =============================================================================
-# CR 도입 페이지
-# =============================================================================
-
-def render_cr_intro() -> None:
-    st.markdown("### 비교 응답 블록 안내")
-    st.markdown(
-        """
-        지금부터 4가지 상황에서 **같은 상황을 세 가지 종교로** 제시하는
-        문항들이 이어집니다.
-
-        - 정답이 없습니다. 평소 느끼시는 가장 가까운 반응을 골라 주세요.
-        - "바람직해 보이는 답"보다 **솔직한 첫 반응**이 더 유용한 데이터가 됩니다.
-        - 각 시나리오는 세 화면에 걸쳐 표시됩니다 (총 12개 문항).
-        """
-    )
-    if st.button("시작하기", type="primary", use_container_width=True):
-        # 첫 CR 페이지로
-        utils.go_to(CR_PAGE_ORDER[0])
 
 
 # =============================================================================
@@ -299,17 +284,22 @@ def render_mc() -> None:
     utils.capture_rt_start("mc")
     progress_header(20, "응답 점검")
 
+    st.markdown(f"#### {config.MC_01_QUESTION}")
     mc01 = st.radio(
         config.MC_01_QUESTION,
         config.MC_01_OPTIONS,
         index=None,
         key="mc01_widget",
+        label_visibility="collapsed",
     )
+
+    st.markdown(f"#### {config.MC_02_QUESTION}")
     mc02 = st.radio(
         config.MC_02_QUESTION,
         config.MC_02_OPTIONS,
         index=None,
         key="mc02_widget",
+        label_visibility="collapsed",
     )
 
     if st.button("다음", type="primary", use_container_width=True):
