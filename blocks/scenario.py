@@ -25,7 +25,7 @@ def render():
 
     st.divider()
     selected = choice is not None
-    if st.button("결과 보기", type="primary", disabled=not selected,
+    if st.button("다음", type="primary", disabled=not selected,
                  use_container_width=True):
         state.responses()["sc01"] = choice
         state.goto("results")
