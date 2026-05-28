@@ -152,5 +152,5 @@ RESULT_META_OPTIONS = [
 # 구글시트 저장 설정 (sheets.py)
 #   실제 시트 이름은 st.secrets["sheet"]["name"]으로도 덮어쓸 수 있다.
 # ─────────────────────────────────────────────────────────────────────────────
-SHEET_NAME = "RDAP_quickv_responses"
+SHEET_NAME = "RDAP_퀵버전_응답결과"
 WORKSHEET_NAME = "responses"
